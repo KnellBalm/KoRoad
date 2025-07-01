@@ -1,0 +1,9 @@
+# Ignore Jupyter Notebook Checkpoints
+*.ipynb_checkpoints
+*.log
+*.out
+*.csv
+*.shp
+*.dbf
+*.shx
+*.cpg
