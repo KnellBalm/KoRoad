@@ -1,0 +1,28 @@
+import gzip
+fd = gzip.open('a')
+
+out = {}
+
+for row in fd:
+    row = row.strip()
+    if row == '':
+        continue 
+    row = row.split(',')
+
+    row[0] ...
+    key
+    part
+
+    out_key = f'{key}_{part}'
+    if out_key not in out:
+       out[out_key] = []
+    out[out_key].append(','.join(row))
+
+
+
+for out_key, row in out.items():
+    fff
+    with open(out_key, 'w') as fd:
+        fd.write('\n'.join(row))
+
+   

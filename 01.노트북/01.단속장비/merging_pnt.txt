@@ -1,0 +1,77 @@
+result = pd.DataFrame()
+for equ_idx in tqdm(mts_pnt['장비번호'].unique()):
+    #장비번호별 MTS 데이터 추출
+    df = mts_pnt[mts_pnt['장비번호'] == equ_idx]
+    df.reset_index(drop=True,inplace=True)
+    
+    #기준일자 생성
+    std_date = df.iloc[0,2]
+    std_date = pd.Timestamp(std_date)
+    
+    #기준일자 전후 365일 기간 일자 생성
+    date_range_col = pd.date_range(std_date - pd.DateOffset(days=365), std_date + pd.DateOffset(days=365))
+    #결합용 dataframe 생성
+    tdf = pd.DataFrame()
+    tdf['date'] = date_range_col
+    tdf['equ_idx'] = equ_idx
+    tdf['vio_type'] = df.iloc[0,1]
+    tdf['equ_est_region'] = df.iloc[0,3]
+    tdf['weather_region'] = df.iloc[0,4]
+    
+    #공공데이터 결합용 날짜
+    tdf['public_date_ym'] = tdf['date'].apply(lambda x : x.strftime('%Y년%m월'))
+    
+    #taas 결합
+    if df.iloc[0,1] == '신호위반':
+        taas_df = lng_gb[lng_gb['장비번호'] == equ_idx]
+        tdf = pd.merge(tdf,taas_df, left_on = ['date','equ_idx'], right_on = ['발생일자','장비번호'],how='left')
+        for i in taas_df.columns:
+            tdf[i].fillna(0,inplace=True)
+    elif df.iloc[0,1] == '속도위반':
+        taas_df = spd_gb[spd_gb['장비번호'] == equ_idx]
+        tdf = pd.merge(tdf,taas_df, left_on = ['date','equ_idx'], right_on = ['발생일자','장비번호'],how='left')
+        for i in taas_df.columns:
+            tdf[i].fillna(0,inplace=True)
+            
+    #TEMS 결합
+    tems_df = sltd_tems[sltd_tems['장비번호'] == equ_idx]
+    tdf = pd.merge(tdf,tems_df,left_on = ['date','equ_idx'], right_on =['단속일자','장비번호'],how='left')
+    for i in ['단속건수','제한속도', '과속속도', '초과속도']:
+        tdf[i].fillna(0, inplace=True)
+
+    #날씨 결합
+    weather_df = weather[weather['지점명'] == tdf.iloc[0,4]]
+    tdf = pd.merge(tdf,weather_df, left_on=['date','weather_region'],right_on=['일시','지점명'],how='left')
+    for i in ['평균기온(°C)', '최저기온(°C)', '최고기온(°C)', '일강수량(mm)','최대 순간 풍속(m/s)', '평균 풍속(m/s)', '평균 상대습도(%)', '평균 증기압(hPa)']:
+        tdf[i].fillna(0,inplace=True)
+
+    #인구 결합
+    pops_df = pops[pops['행정구역'] == tdf.iloc[0,3]][['기준연월','행정구역','total']]
+    tdf = pd.merge(tdf,pops_df, left_on = ['public_date_ym','equ_est_region'], right_on = ['기준연월','행정구역'],how='left')
+
+    tdf['total'].fillna(0,inplace=True)
+
+    #차량등록대수 결합
+    car_reg_df = car_reg[car_reg['시도'] == tdf.iloc[0,3]]
+    tdf = pd.merge(tdf, car_reg_df, left_on = ['public_date_ym','equ_est_region'], right_on = ['기준연월','시도'],how='left')
+    tdf['차량등록대수'].fillna(0,inplace=True)
+
+    # 불필요 컬럼 제거
+    tdf.drop(columns = ['장비번호_x', '발생일자','장비번호_y', '단속일자', '지점명', '일시','기준연월_x', '행정구역','시도','기준연월_y'],inplace=True)
+    tdf.rename(columns = {
+        '평균기온(°C)' : '평균기온', 
+        '최저기온(°C)' : '최저기온', 
+        '최고기온(°C)' : '최고기온', 
+        '일강수량(mm)' : '일강수량',
+       '최대 순간 풍속(m/s)' : '최대순간풍속', 
+        '평균 풍속(m/s)' : '평균풍속', 
+        '평균 상대습도(%)' : '평균상대습도', 
+        '평균 증기압(hPa)' : '평균증기압'
+    }, inplace=True)
+    
+    #결과 병합
+    result = pd.concat([result,tdf])
+    
+result.reset_index(drop=True,inplace=True)
+result['total'] = result['total'].apply(lambda x : int(x.replace(',','')))
+result.rename(columns = {'total' : 'equ_est_region_pops'},inplace=True)

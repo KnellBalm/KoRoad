@@ -11,3 +11,8 @@
 *.pkl
 *.ckpt
 *.pyc
+*.h5
+*.qmd
+*.qgz
+*.xlsx
+*.docx
