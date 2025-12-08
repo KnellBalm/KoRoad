@@ -16,3 +16,10 @@
 *.qgz
 *.xlsx
 *.docx
+*.zip
+*.prj
+__pycache__/
+*.tar.gz
+*.tar
+*.txt
+*.geojson
